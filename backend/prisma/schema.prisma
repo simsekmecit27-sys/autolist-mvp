@@ -1,0 +1,155 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  password_hash String
+  role          Role       @default(USER)
+  
+  profile       Profile?
+  subscription  Subscription?
+  listings      Listing[]
+  payments      Payment[]
+  
+  created_at    DateTime   @default(now())
+  last_login    DateTime?
+  
+  @@index([email])
+}
+
+model Profile {
+  id            String     @id @default(cuid())
+  user_id       String     @unique
+  user          User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  name          String?
+  company_name  String?
+  phone         String?
+  address       String?
+  bio           String?
+  
+  @@index([user_id])
+}
+
+model Subscription {
+  id            String     @id @default(cuid())
+  user_id       String     @unique
+  user          User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  plan_id       String
+  status        SubscriptionStatus @default(ACTIVE)
+  started_at    DateTime   @default(now())
+  ends_at       DateTime?
+  
+  @@index([user_id])
+}
+
+model Listing {
+  id            String     @id @default(cuid())
+  title         String
+  description   String     @db.Text
+  price         Decimal    @db.Decimal(10, 2)
+  currency      String     @default("USD")
+  
+  make          String
+  model         String
+  year          Int
+  mileage       Int
+  fuel_type     String?
+  transmission  String?
+  
+  location      String
+  latitude      Decimal?    @db.Decimal(10, 8)
+  longitude     Decimal?    @db.Decimal(11, 8)
+  
+  images        String[]
+  status        ListingStatus @default(DRAFT)
+  views_count   Int        @default(0)
+  
+  created_by    String
+  user          User       @relation(fields: [created_by], references: [id], onDelete: Cascade)
+  
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+  expires_at    DateTime?
+  
+  @@index([make])
+  @@index([model])
+  @@index([year])
+  @@index([price])
+  @@index([location])
+  @@index([created_at])
+  @@index([created_by])
+}
+
+model Payment {
+  id            String     @id @default(cuid())
+  user_id       String
+  user          User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  stripe_charge_id String?
+  amount        Decimal    @db.Decimal(10, 2)
+  currency      String
+  type          PaymentType
+  status        PaymentStatus @default(PENDING)
+  
+  created_at    DateTime   @default(now())
+  
+  @@index([user_id])
+  @@index([stripe_charge_id])
+}
+
+model ModerationLog {
+  id            String     @id @default(cuid())
+  entity_type   String
+  entity_id     String
+  action        String
+  reason        String?     @db.Text
+  performed_by  String
+  
+  created_at    DateTime   @default(now())
+  
+  @@index([entity_type])
+  @@index([created_at])
+}
+
+enum Role {
+  GUEST
+  USER
+  SELLER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  SOLD
+  ARCHIVED
+  REMOVED
+}
+
+enum PaymentType {
+  SUBSCRIPTION
+  LISTING_FEE
+  REFUND
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
